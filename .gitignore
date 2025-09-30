@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDEs
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+*.swp
+
+# Log files
+*.log
+
+# Data files (uncomment if you want to version your data)
+# data/
+
+# Test files
+.pytest_cache/

@@ -11,9 +11,9 @@ This document outlines the iterative development plan for the CS2 Analytics Engi
 1.  **Scaffold Project Structure:**
     *   Create the directory structure based on Clean Architecture principles:
         ```
-        csgo_analyzer/
+        cs2_analyzer/
         ├── src/
-        │   └── csgo_analyzer/
+        │   └── cs2_analyzer/
         │       ├── domain/
         │       ├── application/
         │       └── interface_adapters/

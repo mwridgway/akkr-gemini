@@ -1,0 +1,22 @@
+[project]
+name = "akkr-gemini"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Matthew Wridgway",email = "mwridgway@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas (>=2.3.3,<3.0.0)",
+    "pyarrow (>=21.0.0,<22.0.0)",
+    "matplotlib (>=3.10.6,<4.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "awpy (>=2.0.2,<3.0.0) ; python_version >= \"3.11\" and python_version < \"3.14\"",
+    "pytest (>=8.4.2,<9.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
