@@ -20,7 +20,7 @@ venv/
 *.log
 
 # Data files (uncomment if you want to version your data)
-# data/
+data/
 
 # Test files
 .pytest_cache/
