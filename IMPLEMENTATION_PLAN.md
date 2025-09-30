@@ -1,6 +1,6 @@
-# Implementation Plan: CS:GO Analytics Engine
+# Implementation Plan: CS2 Analytics Engine
 
-This document outlines the iterative development plan for the CS:GO Analytics Engine, as specified in `REQUIREMENTS.md`.
+This document outlines the iterative development plan for the CS2 Analytics Engine, as specified in `REQUIREMENTS.md`.
 
 ## Phase 1: Project Setup and Core Architecture
 
