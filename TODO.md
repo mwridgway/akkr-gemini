@@ -20,15 +20,12 @@
 - [x] Time to Bomb Plant
 - [x] Average Death Timestamp
 
-### Aggression Metrics (In Progress)
+### Aggression Metrics (Completed)
 - [x] T-Side Average Distance to Bombsite
-- [ ] CT-Side Forward Presence Count
-- [ ] Player Spacing
+- [x] CT-Side Forward Presence Count
+- [x] Player Spacing
 
-### Rotational Efficiency
-- [ ] Rotation Timing
-- [ ] Rotation Success Rate
-- [ ] Engagement Success on Rotation
-
-**Next Steps:**
-- Continue the implementation of the `calculate_t_side_avg_dist_to_bombsite` function.
+### Rotational Efficiency (Completed)
+- [x] Rotation Timing
+- [x] Rotation Success Rate
+- [x] Engagement Success on Rotation
