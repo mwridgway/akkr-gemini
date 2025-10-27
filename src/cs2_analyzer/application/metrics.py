@@ -377,3 +377,131 @@ def calculate_engagement_success_on_rotation(demo) -> float:
         return 0.0
 
     return successful_engagements / total_engagements
+
+
+def calculate_round_win_percentage(demo) -> float:
+    """Calculates the T-side round win percentage for set executes."""
+    if demo is None:
+        return 0.0
+
+    rounds = demo.rounds
+    bomb_planted_events = demo.events.get("bomb_planted", pl.DataFrame())
+
+    if bomb_planted_events.is_empty():
+        return 0.0
+
+    planted_rounds = bomb_planted_events.select("round_num").unique().to_series()
+    
+    total_planted_rounds = len(planted_rounds)
+    if total_planted_rounds == 0:
+        return 0.0
+
+    won_planted_rounds = rounds.filter(
+        (pl.col("round_num").is_in(planted_rounds)) &
+        (pl.col("winner_side") == "t")
+    ).height
+
+    return won_planted_rounds / total_planted_rounds
+
+
+def calculate_entry_success_rate(demo, entry_time_window: int = 15) -> float:
+    """Calculates the T-side entry success rate for set executes."""
+    if demo is None:
+        return 0.0
+
+    rounds = demo.rounds
+    ticks = demo.ticks
+    tickrate = demo.tickrate
+    player_death_events = demo.events.get("player_death", pl.DataFrame())
+    bombsite_locations = demo.bombsite_locations
+
+    total_executes = 0
+    successful_entries = 0
+
+    for r in rounds.iter_rows(named=True):
+        round_num = r["round_num"]
+        freeze_end = r["freeze_end"]
+        
+        round_ticks = ticks.filter(
+            (pl.col("round_num") == round_num) &
+            (pl.col("tick") >= freeze_end) &
+            (pl.col("side") == "t")
+        )
+
+        if round_ticks.is_empty():
+            continue
+
+        # Simplified: Assume an execute happens in any T-side round for now.
+        # A more complex implementation would detect coordinated pushes.
+        total_executes += 1
+        
+        entry_window_end = freeze_end + (entry_time_window * tickrate)
+
+        entry_ticks = round_ticks.filter(
+            (pl.col("tick") <= entry_window_end)
+        )
+
+        entry_success = False
+        for tick in entry_ticks.iter_rows(named=True):
+            player_pos = {'x': tick['X'], 'y': tick['Y'], 'z': tick['Z']}
+            for site_loc in bombsite_locations.values():
+                if euclidean_distance(player_pos, site_loc) <= site_loc.get("radius", 200): # Default radius
+                    # Check if player survived the entry
+                    player_id = tick["player_steamid"]
+                    death_event = player_death_events.filter(
+                        (pl.col("user_steamid") == player_id) &
+                        (pl.col("tick") <= entry_window_end)
+                    )
+                    if death_event.is_empty():
+                        entry_success = True
+                        break
+            if entry_success:
+                break
+        
+        if entry_success:
+            successful_entries += 1
+
+    if total_executes == 0:
+        return 0.0
+
+    return successful_entries / total_executes
+
+
+def calculate_trade_efficiency(demo, trade_time_window: int = 5) -> float:
+    """Calculates the T-side trade efficiency for set executes."""
+    if demo is None:
+        return 0.0
+
+    player_death_events = demo.events.get("player_death", pl.DataFrame())
+    tickrate = demo.tickrate
+
+    if player_death_events.is_empty():
+        return 0.0
+
+    t_deaths = 0
+    traded_deaths = 0
+
+    t_players = demo.t_players
+    ct_players = demo.ct_players
+
+    for death in player_death_events.iter_rows(named=True):
+        if death.get("user_side") == "t":
+            t_deaths += 1
+            death_tick = death["tick"]
+            trade_window_end = death_tick + (trade_time_window * tickrate)
+
+            # Check for a CT death within the trade window
+            trade_kill = player_death_events.filter(
+                (pl.col("tick") > death_tick) &
+                (pl.col("tick") <= trade_window_end) &
+                (pl.col("user_side") == "ct") &
+                (pl.col("attacker_side") == "t")
+            )
+
+            if not trade_kill.is_empty():
+                traded_deaths += 1
+
+    if t_deaths == 0:
+        return 0.0
+
+    return traded_deaths / t_deaths
