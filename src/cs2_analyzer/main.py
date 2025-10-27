@@ -22,14 +22,14 @@ def main():
     # Process the demo file (parses, transforms to Game entity, saves to Parquet)
     print("Parsing demo file...")
     demo = game_service.process_game(args.file_path)
-    print("✓ Demo parsed and saved to Parquet storage\n")
+    print("[OK] Demo parsed and saved to Parquet storage\n")
 
     # Calculate and display metrics
     print("=== Metrics ===")
     avg_dist = calculate_t_side_avg_dist_to_bombsite(demo)
     print(f"T-Side Average Distance to Bombsite: {avg_dist:.2f}")
 
-    print("\n✓ Analysis complete!")
+    print("\n[OK] Analysis complete!")
 
 
 if __name__ == "__main__":

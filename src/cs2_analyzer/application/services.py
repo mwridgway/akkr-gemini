@@ -100,13 +100,38 @@ class GameService:
         if not hasattr(demo, 'events') or not demo.events:
             return events
 
+        # Get round tick range from rounds DataFrame
+        round_row = demo.rounds.filter(demo.rounds['round_num'] == round_num)
+        if round_row.is_empty():
+            return events
+
+        round_data = round_row.row(0, named=True)
+        freeze_start = round_data.get('freeze_start', 0)
+        freeze_end = round_data.get('freeze_end', 0)
+
+        # Use a wide tick range to capture all round events
+        # From freeze start to well after freeze end
+        round_start_tick = freeze_start
+        round_end_tick = freeze_end + (120 * demo.tickrate)  # ~2 minutes buffer
+
         # Collect events from all event types
         for event_type, event_df in demo.events.items():
             if event_df is None or event_df.is_empty():
                 continue
 
-            # Filter events for this round
-            round_events = event_df.filter(event_df['round_num'] == round_num)
+            # Check if event_df has round_num column
+            if 'round_num' in event_df.columns:
+                # Filter by round_num directly
+                round_events = event_df.filter(event_df['round_num'] == round_num)
+            elif 'tick' in event_df.columns:
+                # Filter by tick range
+                round_events = event_df.filter(
+                    (event_df['tick'] >= round_start_tick) &
+                    (event_df['tick'] <= round_end_tick)
+                )
+            else:
+                # Skip events without round_num or tick
+                continue
 
             # Convert to dictionaries
             for event_row in round_events.iter_rows(named=True):
