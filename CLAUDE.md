@@ -82,16 +82,34 @@ The codebase follows **Clean Architecture** with strict layering and the **Depen
 
 ### Data Flow Pipeline
 ```
-.dem file → GameService.process_game()
+.dem file → AwpyDemoParser.parse()
           ↓
-    awpy.Demo.parse()
+    awpy Demo object (ticks, events, rounds DataFrames)
           ↓
-    Demo object (with ticks, events, rounds DataFrames)
+    GameService._build_teams() + _build_rounds()
           ↓
-    Metric calculation functions
+    Game entity (teams, players, rounds with events/positions)
+          ↓
+    ParquetGameRepository.save()
+          ↓
+    Normalized Parquet tables (6 files in data/processed/)
+          │
+          ├─ games.parquet (game metadata)
+          ├─ teams.parquet (team info)
+          ├─ players.parquet (player info)
+          ├─ rounds.parquet (round metadata)
+          ├─ events.parquet (all game events)
+          └─ positions.parquet (player positions)
+          ↓
+    Metric calculation functions (use Demo object)
           ↓
     Numeric results (float)
 ```
+
+**Key Infrastructure Components:**
+- **DemoParser** (`application/ingestion.py`) - Abstraction for demo parsing with Protocol-based interface
+- **GameService** (`application/services.py`) - Orchestrates parsing and Game entity transformation
+- **ParquetGameRepository** (`interface_adapters/parquet_repository.py`) - Normalized storage with 6 tables
 
 ## Domain Models
 
@@ -205,28 +223,91 @@ def test_calculate_player_spacing():
 
 ## Current Implementation Status
 
-### Completed
-- ✅ Core architecture and layering
-- ✅ Domain entities defined
+### Phase 1: Core Architecture (✅ COMPLETE)
+- ✅ DemoParser abstraction with Protocol interface
+- ✅ AwpyDemoParser implementation
+- ✅ Full Game entity transformation (teams, players, rounds, events, positions)
+- ✅ Normalized Parquet storage (6-table schema)
+- ✅ ParquetGameRepository with save/load roundtrip
+- ✅ Comprehensive test suite (ingestion, transformation, repository)
+
+### Phase 2: Strategic Metrics (✅ COMPLETE)
 - ✅ 11 metric calculations implemented
-- ✅ Repository interface abstraction
-- ✅ Comprehensive test suite
-- ✅ Demo parsing integration (awpy)
+- ✅ Pacing metrics (3): TTFK, Bomb Plant Time, Average Death Timestamp
+- ✅ Aggression metrics (3): T-Side Distance, CT Forward Presence, Player Spacing
+- ✅ Rotational efficiency (3): Timing, Success Rate, Engagement Success
+- ✅ Execute effectiveness (partial): Round Win %, Entry Success, Trade Efficiency
 
-### TODO (Not Yet Implemented)
-- ⚠️ **Repository persistence** - Parquet save/load logic in `parquet_repository.py`
-- ⚠️ **Game entity population** - Transform Demo data into Game entities (`services.py:21`)
-- ⚠️ Full Game entity serialization workflow
+### Next Phases
+- Phase 3A: CT-Side Defensive Setups (Positional Heatmaps, Crossfire Density)
+- Phase 3B: Post-Plant & Retake Efficiency
+- Phase 4: Utility Orchestration (Flashbang/Molotov effectiveness)
 
-### TODOs in Code
+## Parquet Storage Schema
+
+The repository uses a **normalized 6-table schema** optimized for OLAP workloads:
+
+### Table Structure
 ```
-src/cs2_analyzer/application/services.py:21
-  # TODO: Transform the parsed data into a Game entity
-
-src/cs2_analyzer/interface_adapters/parquet_repository.py
-  # TODO: Implement Parquet saving logic
-  # TODO: Implement Parquet loading logic
+data/processed/
+├── games.parquet          # Game metadata
+│   ├── game_id (UUID)
+│   ├── map_name
+│   ├── timestamp
+│   ├── num_teams
+│   └── num_rounds
+│
+├── teams.parquet          # Team information
+│   ├── team_id
+│   ├── game_id (FK)
+│   ├── name
+│   └── num_players
+│
+├── players.parquet        # Player information
+│   ├── player_id
+│   ├── team_id (FK)
+│   ├── game_id (FK)
+│   ├── steam_id
+│   ├── name
+│   └── team (T/CT)
+│
+├── rounds.parquet         # Round metadata
+│   ├── round_id
+│   ├── game_id (FK)
+│   ├── round_number
+│   ├── winner
+│   ├── num_events
+│   └── num_positions
+│
+├── events.parquet         # All game events
+│   ├── event_id
+│   ├── round_id (FK)
+│   ├── game_id (FK)
+│   ├── tick
+│   ├── event_type
+│   └── [dynamic event fields]
+│
+└── positions.parquet      # Player positions (sampled)
+    ├── position_id
+    ├── round_id (FK)
+    ├── game_id (FK)
+    ├── tick
+    ├── player_steamid
+    ├── side (T/CT)
+    ├── X, Y, Z
+    ├── yaw
+    └── pitch
 ```
+
+### Repository Methods
+- `save(game: Game)` - Decomposes Game entity into 6 DataFrames, saves to Parquet
+- `get(game_id: str)` - Loads and reconstructs full Game entity from tables
+- `_append_to_table()` - Appends to existing Parquet files (concat pattern)
+- `_load_table()` - Loads Parquet table with pandas
+
+### Position Sampling
+To reduce storage size, positions are sampled every 16 ticks (~0.25s at 64 tick rate).
+This is configured in `GameService._extract_round_positions()`.
 
 ## Development Principles (from REQUIREMENTS.md)
 
