@@ -68,7 +68,7 @@ The codebase follows **Clean Architecture** with strict layering and the **Depen
 1. **Repository Pattern** - Data access abstraction using Protocol-based interfaces
    - Interface: `application/interfaces.py` (GameRepository Protocol)
    - Implementation: `interface_adapters/parquet_repository.py`
-   - Currently stubbed (TODO: implement Parquet persistence)
+   - Fully implemented with normalized 6-table Parquet storage
 
 2. **Service Layer** - Business logic orchestration
    - `GameService` in `application/services.py`
@@ -120,16 +120,18 @@ The codebase follows **Clean Architecture** with strict layering and the **Depen
 - `Game` - map_name, teams, rounds (aggregate root)
 
 **Demo Object** (from awpy library):
-- `demo.ticks` - DataFrame with tick-level player positions (X, Y, Z coordinates)
-- `demo.events` - Dict of event DataFrames (bomb_planted, player_death, etc.)
-- `demo.rounds` - DataFrame with round metadata (freeze_end, winner_side, etc.)
+- `demo.ticks` - Polars DataFrame with tick-level player positions (X, Y, Z, yaw, pitch)
+- `demo.events` - Dict of event Polars DataFrames (bomb_planted, player_death, etc.)
+- `demo.rounds` - Polars DataFrame with round metadata (freeze_end, winner_side, etc.)
+- `demo.header` - Dict with map_name and other metadata
 - `demo.tickrate` - Server tickrate (64 or 128)
-- `demo.t_spawn / demo.ct_spawn` - Spawn locations
+- `demo.t_players` / `demo.ct_players` - Lists of player names by team
+- `demo.t_spawn` / `demo.ct_spawn` - Spawn locations (dict with X, Y, Z)
 - `demo.bombsite_locations` - Dict with A/B site coordinates
 
 ## Metrics Implementation
 
-The project implements **11 strategic metrics** across 4 categories:
+The project implements **12 strategic metrics** across 4 categories:
 
 ### 1. Pacing Metrics (Tempo)
 - `calculate_ttfk()` - Time To First Kill
@@ -196,6 +198,7 @@ Tests use mock Demo objects constructed with Polars DataFrames:
 class MockDemo:
     ticks: pl.DataFrame
     rounds: pl.DataFrame
+    events: dict  # Dict of event DataFrames
     tickrate: int
     t_spawn: dict
     ct_spawn: dict
@@ -232,11 +235,11 @@ def test_calculate_player_spacing():
 - ✅ Comprehensive test suite (ingestion, transformation, repository)
 
 ### Phase 2: Strategic Metrics (✅ COMPLETE)
-- ✅ 11 metric calculations implemented
+- ✅ 12 metric calculations implemented
 - ✅ Pacing metrics (3): TTFK, Bomb Plant Time, Average Death Timestamp
 - ✅ Aggression metrics (3): T-Side Distance, CT Forward Presence, Player Spacing
 - ✅ Rotational efficiency (3): Timing, Success Rate, Engagement Success
-- ✅ Execute effectiveness (partial): Round Win %, Entry Success, Trade Efficiency
+- ✅ Execute effectiveness (3): Round Win %, Entry Success, Trade Efficiency
 
 ### Next Phases
 - Phase 3A: CT-Side Defensive Setups (Positional Heatmaps, Crossfire Density)
@@ -309,6 +312,12 @@ data/processed/
 To reduce storage size, positions are sampled every 16 ticks (~0.25s at 64 tick rate).
 This is configured in `GameService._extract_round_positions()`.
 
+### Storage Notes
+- Sample demo files are available in `data/raw/` (5 Falcons vs Vitality matches)
+- Current implementation generates 4 primary tables: games, rounds, events, positions
+- Teams and players data are embedded in the games table structure
+- Repository supports append-only pattern for multiple games (DataFrame concatenation)
+
 ## Development Principles (from REQUIREMENTS.md)
 
 ### Data Storage
@@ -346,14 +355,16 @@ This is configured in `GameService._extract_round_positions()`.
 ### Running Analysis
 The current workflow:
 1. User provides .dem file path
-2. `GameService` parses with awpy
-3. Repository saves Game entity (currently stub)
-4. Returns Demo object to `main.py`
-5. `main.py` calls metric functions directly
+2. `GameService` parses with awpy, returns Demo object
+3. Repository saves Game entity to normalized Parquet tables in `data/processed/`
+4. `main.py` receives Demo object
+5. `main.py` calls metric functions directly (metrics operate on Demo object, not Game entity)
 6. Results printed to console
 
 ### Important Notes
 - **awpy library** provides the Demo object structure - do not modify
-- **Polars** is used in metrics for performance (via awpy)
+- **Polars vs Pandas**: Metrics use Polars DataFrames (via awpy Demo object), Repository uses pandas for Parquet I/O
+- **Metrics operate on Demo object**, not on the transformed Game entity
 - **Protocol** (not ABC) is used for interfaces (structural typing)
+- **Helper functions**: `euclidean_distance()` and other utilities are in `metrics.py`
 - Test with **mock DataFrames** - no database mocking needed
